@@ -1,0 +1,15 @@
+.venv
+.git
+.gitignore
+.envrc
+.direnv
+.worktrees
+.opencode
+.pytest_cache
+__pycache__/
+*.pyc
+*.db
+docs/
+tests/
+flake.lock
+flake.nix
