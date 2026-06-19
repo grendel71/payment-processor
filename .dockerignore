@@ -1,6 +1,7 @@
 .venv
 .git
 .gitignore
+.env
 .envrc
 .direnv
 .worktrees
