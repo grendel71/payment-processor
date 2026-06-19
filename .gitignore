@@ -1,4 +1,9 @@
 .venv
 .envrc
 .direnv
+.worktrees/
+__pycache__/
+*.pyc
+*.db
+.pytest_cache/
 
