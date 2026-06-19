@@ -5,7 +5,8 @@ from uuid import uuid4
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
-from app.db import Base, SessionLocal, engine
+from app import db as db_module
+from app.db import Base
 from app.models.audit_event import AuditEvent
 from app.models.enums import AuditEventType, LedgerEntryType, PaymentStatus
 from app.models.ledger_entry import LedgerEntry
@@ -14,12 +15,12 @@ from app.models.settlement import Settlement, SettlementPayment
 
 
 def setup_function() -> None:
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.drop_all(bind=db_module.engine)
+    Base.metadata.create_all(bind=db_module.engine)
 
 
 def test_tables_created() -> None:
-    inspector = inspect(engine)
+    inspector = inspect(db_module.engine)
     tables = set(inspector.get_table_names())
     assert {
         "payments",
@@ -31,7 +32,7 @@ def test_tables_created() -> None:
 
 
 def test_payment_columns() -> None:
-    cols = {c["name"] for c in inspect(engine).get_columns("payments")}
+    cols = {c["name"] for c in inspect(db_module.engine).get_columns("payments")}
     assert {
         "id",
         "merchant_id",
@@ -45,7 +46,7 @@ def test_payment_columns() -> None:
 
 
 def test_payment_idempotency_unique_constraint() -> None:
-    uniques = inspect(engine).get_unique_constraints("payments")
+    uniques = inspect(db_module.engine).get_unique_constraints("payments")
     names = {u["name"] for u in uniques}
     assert "uq_merchant_idempotency" in names
     matched = next(u for u in uniques if u["name"] == "uq_merchant_idempotency")
@@ -53,9 +54,9 @@ def test_payment_idempotency_unique_constraint() -> None:
 
 
 def test_ledger_entry_fk_and_columns() -> None:
-    cols = {c["name"] for c in inspect(engine).get_columns("ledger_entries")}
+    cols = {c["name"] for c in inspect(db_module.engine).get_columns("ledger_entries")}
     assert {"id", "payment_id", "entry_type", "amount", "created_at"}.issubset(cols)
-    fks = inspect(engine).get_foreign_keys("ledger_entries")
+    fks = inspect(db_module.engine).get_foreign_keys("ledger_entries")
     assert any(
         fk["referred_table"] == "payments" and fk["constrained_columns"] == ["payment_id"]
         for fk in fks
@@ -63,9 +64,9 @@ def test_ledger_entry_fk_and_columns() -> None:
 
 
 def test_audit_event_fk_and_columns() -> None:
-    cols = {c["name"] for c in inspect(engine).get_columns("audit_events")}
+    cols = {c["name"] for c in inspect(db_module.engine).get_columns("audit_events")}
     assert {"id", "payment_id", "event_type", "payload", "created_at"}.issubset(cols)
-    fks = inspect(engine).get_foreign_keys("audit_events")
+    fks = inspect(db_module.engine).get_foreign_keys("audit_events")
     assert any(
         fk["referred_table"] == "payments" and fk["constrained_columns"] == ["payment_id"]
         for fk in fks
@@ -73,7 +74,7 @@ def test_audit_event_fk_and_columns() -> None:
 
 
 def test_settlement_tables_exist() -> None:
-    inspector = inspect(engine)
+    inspector = inspect(db_module.engine)
     cols = {c["name"] for c in inspector.get_columns("settlements")}
     assert {"id", "status", "total_amount", "settled_at", "created_at"}.issubset(cols)
     join_cols = {c["name"] for c in inspector.get_columns("settlement_payments")}
@@ -84,7 +85,7 @@ def test_settlement_tables_exist() -> None:
 
 def test_payment_idempotency_constraint_enforced() -> None:
     mid = uuid4()
-    with SessionLocal() as s:
+    with db_module.SessionLocal() as s:
         s.add(
             Payment(
                 id=uuid4(),
@@ -114,7 +115,7 @@ def test_payment_idempotency_constraint_enforced() -> None:
 
 
 def test_ledger_entry_relationship() -> None:
-    with SessionLocal() as s:
+    with db_module.SessionLocal() as s:
         pid = uuid4()
         p = Payment(
             id=pid,
@@ -138,7 +139,7 @@ def test_ledger_entry_relationship() -> None:
 
 
 def test_audit_event_payload_json() -> None:
-    with SessionLocal() as s:
+    with db_module.SessionLocal() as s:
         pid = uuid4()
         s.add(
             Payment(
@@ -166,7 +167,7 @@ def test_audit_event_payload_json() -> None:
 
 
 def test_created_at_defaults_to_utc() -> None:
-    with SessionLocal() as s:
+    with db_module.SessionLocal() as s:
         pid = uuid4()
         s.add(
             Payment(

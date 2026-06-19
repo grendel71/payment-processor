@@ -12,7 +12,7 @@ from app.db import Base
 from app.main import create_app
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def isolated_db() -> Generator[None, None, None]:
     """Rebind app.db to a fresh in-memory SQLite for one test.
 
