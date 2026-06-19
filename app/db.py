@@ -26,6 +26,9 @@ def _build_dsn() -> str:
     duplicating it.
     """
     if url := os.getenv("DATABASE_URL"):
+        # Heroku/Render emit bare `postgres://`; SQLAlchemy 2.x requires `postgresql://`.
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
         return url
     user = os.getenv("POSTGRES_USER", "pp")
     password = os.getenv("POSTGRES_PASSWORD", "pp")
