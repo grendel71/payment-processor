@@ -1,18 +1,11 @@
-"""FastAPI application factory and lifespan.
-
-Tables are created on startup against the configured engine. In tests,
-the conftest rebinds `app.db.engine`/`SessionLocal` to an in-memory
-SQLite before constructing the client, so startup creates tables there.
-"""
+"""FastAPI application factory and lifespan."""
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app import db as db_module
 from app.api.health import router as health_router
 from app.api.payments import router as payments_router
-from app.db import Base
 from app.services.exceptions import (
     IdempotencyConflictError,
     InvalidStateTransitionError,
@@ -22,8 +15,9 @@ from app.services.exceptions import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Read engine lazily so test fixtures that rebind app.db.engine work.
-    Base.metadata.create_all(bind=db_module.engine)
+    # Schema is owned by Alembic. Production runs `alembic upgrade head`
+    # out-of-band (init container / deploy step). Tests do the same in the
+    # session-scoped `engine` fixture in tests/conftest.py.
     yield
 
 
