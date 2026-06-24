@@ -1,9 +1,11 @@
 """Database engine, session factory, and declarative base.
 
-SQLite is used for local/test execution per the implementation plan.
-Postgres-specific behaviors (UUID, JSON) are accessed via SQLAlchemy's
-generic types so the same models work on both backends.
+PostgreSQL is the only supported backend. Dev-safe defaults in
+`_build_dsn()` match `.env.example` so module import never crashes
+without env configured — production overrides via env vars or the
+`DATABASE_URL` shortcut.
 """
+import os
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
@@ -14,13 +16,33 @@ class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
 
 
-# Module-level engine + session factory. Tests override `engine` via
-# `create_engine("sqlite:///:memory:")` and rebind `SessionLocal`.
-DATABASE_URL = "sqlite:///./paymentprocessor.db"
+def _build_dsn() -> str:
+    """Construct a Postgres DSN from environment.
 
+    `DATABASE_URL` (if set) wins; otherwise compose from individual
+    `POSTGRES_*` vars. Each has a dev-safe default matching
+    `.env.example` so module import never crashes. Single source of
+    truth — `migrations/env.py` imports this function rather than
+    duplicating it.
+    """
+    if url := os.getenv("DATABASE_URL"):
+        # Heroku/Render emit bare `postgres://`; SQLAlchemy 2.x requires `postgresql://`.
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        return url
+    user = os.getenv("POSTGRES_USER", "pp")
+    password = os.getenv("POSTGRES_PASSWORD", "pp")
+    db = os.getenv("POSTGRES_DB", "paymentprocessor")
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
+
+
+# Module-level engine + session factory. Tests override `engine` and
+# `SessionLocal` via monkeypatch (see tests/conftest.py).
 engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    _build_dsn(),
+    pool_pre_ping=True,
     future=True,
 )
 

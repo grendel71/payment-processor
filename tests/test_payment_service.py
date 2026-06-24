@@ -2,8 +2,8 @@
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.db import Base, SessionLocal, engine
 from app.models.enums import AuditEventType, PaymentStatus
 from app.repositories.audit_event import AuditEventRepository
 from app.repositories.ledger_entry import LedgerEntryRepository
@@ -15,26 +15,24 @@ from app.services.exceptions import (
 from app.services.payment import PaymentService
 
 
-def setup_function() -> None:
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+def _svc(session: Session) -> PaymentService:
+    return PaymentService(session)
 
 
-def _svc(session=None) -> PaymentService:
-    s = session or SessionLocal()
-    return PaymentService(s)
+def _sessionmaker(engine):
+    return sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
 
-def test_create_payment_writes_created_audit_event() -> None:
+def test_create_payment_writes_created_audit_event(db, engine) -> None:
     mid = uuid4()
-    with SessionLocal() as s:
-        p, created = _svc(s).create_payment(
-            merchant_id=mid,
-            idempotency_key="k1",
-            amount=100,
-        )
-        s.commit()
-        assert created is True
+    p, created = _svc(db).create_payment(
+        merchant_id=mid,
+        idempotency_key="k1",
+        amount=100,
+    )
+    db.commit()
+    assert created is True
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         events = AuditEventRepository(s).get_by_payment_id(p.id)
         assert len(events) == 1
@@ -42,24 +40,24 @@ def test_create_payment_writes_created_audit_event() -> None:
         assert events[0].payload["new_status"] == "pending"
 
 
-def test_create_payment_status_pending_version_1() -> None:
-    with SessionLocal() as s:
-        p, _ = _svc(s).create_payment(
-            merchant_id=uuid4(), idempotency_key="k2", amount=10
-        )
-        s.commit()
-        assert p.status == PaymentStatus.PENDING
-        assert p.version == 1
+def test_create_payment_status_pending_version_1(db) -> None:
+    p, _ = _svc(db).create_payment(
+        merchant_id=uuid4(), idempotency_key="k2", amount=10
+    )
+    db.commit()
+    assert p.status == PaymentStatus.PENDING
+    assert p.version == 1
 
 
-def test_duplicate_create_same_amount_returns_existing() -> None:
+def test_duplicate_create_same_amount_returns_existing(db, engine) -> None:
     mid = uuid4()
-    with SessionLocal() as s:
-        first, created_first = _svc(s).create_payment(
-            merchant_id=mid, idempotency_key="dup", amount=100
-        )
-        s.commit()
-        assert created_first is True
+    first, created_first = _svc(db).create_payment(
+        merchant_id=mid, idempotency_key="dup", amount=100
+    )
+    db.commit()
+    assert created_first is True
+
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         second, created_second = _svc(s).create_payment(
             merchant_id=mid, idempotency_key="dup", amount=100
@@ -73,25 +71,27 @@ def test_duplicate_create_same_amount_returns_existing() -> None:
         assert len(events) == 1
 
 
-def test_duplicate_create_different_amount_raises_conflict() -> None:
+def test_duplicate_create_different_amount_raises_conflict(db, engine) -> None:
     mid = uuid4()
-    with SessionLocal() as s:
-        _svc(s).create_payment(merchant_id=mid, idempotency_key="c", amount=100)
-        s.commit()
+    _svc(db).create_payment(merchant_id=mid, idempotency_key="c", amount=100)
+    db.commit()
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         with pytest.raises(IdempotencyConflictError):
             _svc(s).create_payment(
-                merchant_id=mid, idempotency_key="c", amount=200
+                merchant_id=mid,
+                idempotency_key="c",
+                amount=200,
             )
 
 
-def test_settle_pending_writes_ledger_and_audit() -> None:
+def test_settle_pending_writes_ledger_and_audit(db, engine) -> None:
     mid = uuid4()
-    with SessionLocal() as s:
-        p, _ = _svc(s).create_payment(
-            merchant_id=mid, idempotency_key="s1", amount=250
-        )
-        s.commit()
+    p, _ = _svc(db).create_payment(
+        merchant_id=mid, idempotency_key="s1", amount=250
+    )
+    db.commit()
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         settled = _svc(s).settle_payment(p.id)
         s.commit()
@@ -107,19 +107,18 @@ def test_settle_pending_writes_ledger_and_audit() -> None:
         assert AuditEventType.SETTLEMENT_SUCCEEDED in types
 
 
-def test_settle_unknown_payment_raises_not_found() -> None:
-    with SessionLocal() as s:
-        with pytest.raises(PaymentNotFoundError):
-            _svc(s).settle_payment(uuid4())
+def test_settle_unknown_payment_raises_not_found(db) -> None:
+    with pytest.raises(PaymentNotFoundError):
+        _svc(db).settle_payment(uuid4())
 
 
-def test_settle_already_settled_is_idempotent_no_duplicate_ledger() -> None:
+def test_settle_already_settled_is_idempotent_no_duplicate_ledger(db, engine) -> None:
     mid = uuid4()
-    with SessionLocal() as s:
-        p, _ = _svc(s).create_payment(
-            merchant_id=mid, idempotency_key="s2", amount=50
-        )
-        s.commit()
+    p, _ = _svc(db).create_payment(
+        merchant_id=mid, idempotency_key="s2", amount=50
+    )
+    db.commit()
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         _svc(s).settle_payment(p.id)
         s.commit()
@@ -132,16 +131,16 @@ def test_settle_already_settled_is_idempotent_no_duplicate_ledger() -> None:
         assert len(entries) == 1  # no duplicate ledger row
 
 
-def test_settle_failed_payment_raises_invalid_transition() -> None:
+def test_settle_failed_payment_raises_invalid_transition(db, engine) -> None:
     mid = uuid4()
-    with SessionLocal() as s:
-        p, _ = _svc(s).create_payment(
-            merchant_id=mid, idempotency_key="f1", amount=50
-        )
-        s.commit()
+    p, _ = _svc(db).create_payment(
+        merchant_id=mid, idempotency_key="f1", amount=50
+    )
+    db.commit()
     # Force the payment into a failed state directly to test the guard.
     from app.repositories.payment import PaymentRepository
 
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         repo = PaymentRepository(s)
         row = repo.get_by_id(p.id)
@@ -153,13 +152,13 @@ def test_settle_failed_payment_raises_invalid_transition() -> None:
             _svc(s).settle_payment(p.id)
 
 
-def test_audit_payload_captures_before_after_status() -> None:
+def test_audit_payload_captures_before_after_status(db, engine) -> None:
     mid = uuid4()
-    with SessionLocal() as s:
-        p, _ = _svc(s).create_payment(
-            merchant_id=mid, idempotency_key="p1", amount=10
-        )
-        s.commit()
+    p, _ = _svc(db).create_payment(
+        merchant_id=mid, idempotency_key="p1", amount=10
+    )
+    db.commit()
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         _svc(s).settle_payment(p.id)
         s.commit()
@@ -172,14 +171,14 @@ def test_audit_payload_captures_before_after_status() -> None:
         assert settle_ev.payload["new_status"] == "settled"
 
 
-def test_failed_settlement_writes_failure_audit_and_marks_failed() -> None:
+def test_failed_settlement_writes_failure_audit_and_marks_failed(db, engine) -> None:
     """A settle failure transitions payment to failed + SETTLEMENT_FAILED audit."""
     mid = uuid4()
-    with SessionLocal() as s:
-        p, _ = _svc(s).create_payment(
-            merchant_id=mid, idempotency_key="ff", amount=10
-        )
-        s.commit()
+    p, _ = _svc(db).create_payment(
+        merchant_id=mid, idempotency_key="ff", amount=10
+    )
+    db.commit()
+    SessionLocal = _sessionmaker(engine)
     with SessionLocal() as s:
         svc = _svc(s)
         # Inject a failure by forcing the ledger write to raise.

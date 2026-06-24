@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pp}
+      POSTGRES_DB: ${POSTGRES_DB:-paymentprocessor}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pp} -d ${POSTGRES_DB:-paymentprocessor}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pp}
+      POSTGRES_DB: ${POSTGRES_DB:-paymentprocessor}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pp_pgdata:
