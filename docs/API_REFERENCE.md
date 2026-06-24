@@ -1,11 +1,12 @@
 # API Reference
 
 Reference for the Payment Processor v1 API and the internal service,
-repository, and schema contracts that back it. Authored from the code
-in `app/` at commit `90aa322` (post-merge of `feature/payments-domain`).
+repository, and schema contracts that back it. Updated after the
+PostgreSQL/Alembic refactor.
 
 For design rationale and failure-scenario analysis see
-`docs/superpowers/specs/2026-05-28-payments-domain-design.md`.
+`docs/superpowers/specs/2026-05-28-payments-domain-design.md` and
+`docs/superpowers/specs/2026-06-19-postgresql-refactor-design.md`.
 
 ---
 
@@ -348,7 +349,7 @@ Append-only. FK `payment_id → payments.id` (`ondelete=RESTRICT`).
 | `id` | `Uuid` PK |
 | `payment_id` | `Uuid` FK, indexed |
 | `event_type` | `Enum(AuditEventType)` |
-| `payload` | `JSON` |
+| `payload` | `JSONB` in Postgres via Alembic migration |
 | `created_at` | `DateTime` |
 
 ### `Settlement`, `SettlementPayment` — `app/models/settlement.py`
@@ -368,15 +369,20 @@ v1 API route reads or writes them.**
 ## 6. Configuration & dependencies — `app/db.py`, `app/api/deps.py`
 
 ### `app/db.py`
-- `DATABASE_URL` defaults to `sqlite:///./paymentprocessor.db`.
-- `engine` — `create_engine(DATABASE_URL, check_same_thread=False, future=True)`.
+- `_build_dsn()` composes the Postgres DSN. `DATABASE_URL` wins if set;
+  bare `postgres://` URLs are normalized to `postgresql://`; otherwise
+  the DSN is composed from `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+  `POSTGRES_DB`, `POSTGRES_HOST`, and `POSTGRES_PORT` with dev-safe
+  defaults matching `.env.example`.
+- `engine` — `create_engine(_build_dsn(), pool_pre_ping=True, future=True)`.
+  `pool_pre_ping=True` avoids stale containerized connections.
 - `SessionLocal` — `sessionmaker(..., expire_on_commit=False)`. The
   `expire_on_commit=False` is intentional: API routes serialize ORM
   objects after commit; without this they would detach.
 - `Base` — declarative base for all models.
-- `get_db()` — module-level dependency (also defined here for direct
-  use). The `app/api/deps.py` version is identical but reads
-  `db_module.SessionLocal` lazily so test fixtures can rebind it.
+- `get_db()` — module-level dependency that yields a session, rolls back
+  on exception, and closes the session.
+- No alternate database backend is supported by the application runtime.
 
 ### `app/api/deps.py`
 - `get_db()` — yields a session, rolls back on exception, closes.
@@ -388,7 +394,10 @@ v1 API route reads or writes them.**
 
 ### `app/main.py`
 - `create_app()` — factory; registers `health_router` and
-  `payments_router`, installs `lifespan` that calls
-  `Base.metadata.create_all(bind=db_module.engine)` on startup, and
-  registers exception handlers mapping service exceptions to HTTP 404/409.
+  `payments_router`, installs a lifespan that leaves schema creation to
+  Alembic, and registers exception handlers mapping service exceptions
+  to HTTP 404/409.
+- Schema creation is not performed at app boot. Run
+  `alembic upgrade head` out-of-band before starting the API; tests do
+  this through the session-scoped `engine` fixture in `tests/conftest.py`.
 - Module-level `app = create_app()` for `uvicorn app.main:app`.
