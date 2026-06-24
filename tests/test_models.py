@@ -171,3 +171,55 @@ def test_created_at_defaults_to_utc(db) -> None:
     p = db.get(Payment, pid)
     assert p.created_at is not None
     assert p.created_at.tzinfo is None or p.created_at.tzinfo == timezone.utc
+
+
+# ---------------------------------------------------------------------
+# Postgres-specific assertions (these tests assert PG-native DDL that
+# SQLite silently ignored). Add after existing tests; uses `engine`.
+# ---------------------------------------------------------------------
+
+
+def test_payment_status_enum_is_pg_native(engine) -> None:
+    """Confirms the payment_status enum is a Postgres type, not a CHECK."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(
+                "SELECT t.typname FROM pg_type t "
+                "JOIN pg_enum e ON e.enumtypid = t.oid "
+                "GROUP BY t.typname ORDER BY t.typname;"
+            )
+        ).fetchall()
+        typnames = {row[0] for row in result}
+    assert "payment_status" in typnames
+    assert "ledger_entry_type" in typnames
+    assert "audit_event_type" in typnames
+
+
+def test_ledger_entry_fk_ondelete_restrict(engine) -> None:
+    """Confirms ondelete=RESTRICT is actually emitted (SQLite ignored this)."""
+    fks = inspect(engine).get_foreign_keys("ledger_entries")
+    assert any(
+        fk["referred_table"] == "payments"
+        and fk["constrained_columns"] == ["payment_id"]
+        and fk["options"].get("ondelete") == "RESTRICT"
+        for fk in fks
+    )
+
+
+def test_audit_payload_jsonb(engine) -> None:
+    """Confirms audit_events.payload is JSONB (enables GIN indexing later)."""
+    cols = inspect(engine).get_columns("audit_events")
+    payload_col = next(c for c in cols if c["name"] == "payload")
+    type_name = str(payload_col["type"]).upper()
+    assert "JSONB" in type_name, f"expected JSONB, got {type_name}"
+
+
+def test_uuid_column_pg_uuid(engine) -> None:
+    """Confirms payments.id and payments.merchant_id are native PG UUID."""
+    cols = inspect(engine).get_columns("payments")
+    for col_name in ("id", "merchant_id"):
+        col = next(c for c in cols if c["name"] == col_name)
+        type_name = str(col["type"]).upper()
+        assert "UUID" in type_name, f"{col_name} expected UUID, got {type_name}"

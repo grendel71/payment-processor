@@ -29,3 +29,43 @@ def test_alembic_upgrade_head_creates_all_tables(engine) -> None:
         "settlements",
         "settlement_payments",
     }.issubset(tables)
+
+
+def test_alembic_creates_idempotency_unique_constraint(engine) -> None:
+    """The uq_merchant_idempotency constraint must exist after upgrade."""
+    from sqlalchemy import inspect
+
+    uniques = inspect(engine).get_unique_constraints("payments")
+    names = {u["name"] for u in uniques}
+    assert "uq_merchant_idempotency" in names
+    matched = next(u for u in uniques if u["name"] == "uq_merchant_idempotency")
+    assert set(matched["column_names"]) == {"merchant_id", "idempotency_key"}
+
+
+def test_alembic_creates_settlement_payment_unique_constraint(engine) -> None:
+    """The uq_settlement_payment_payment constraint must exist after upgrade."""
+    from sqlalchemy import inspect
+
+    uniques = inspect(engine).get_unique_constraints("settlement_payments")
+    assert any(
+        "payment_id" in u["column_names"] for u in uniques
+    ), "expected unique constraint on settlement_payments(payment_id)"
+
+
+def test_alembic_creates_indexes(engine) -> None:
+    """Indexes on payments.merchant_id, ledger_entries.payment_id, audit_events.payment_id."""
+    from sqlalchemy import inspect
+
+    inspector = inspect(engine)
+    assert any(
+        "merchant_id" in (i["column_names"] if i.get("column_names") else [])
+        for i in inspector.get_indexes("payments")
+    )
+    assert any(
+        "payment_id" in (i["column_names"] if i.get("column_names") else [])
+        for i in inspector.get_indexes("ledger_entries")
+    )
+    assert any(
+        "payment_id" in (i["column_names"] if i.get("column_names") else [])
+        for i in inspector.get_indexes("audit_events")
+    )
