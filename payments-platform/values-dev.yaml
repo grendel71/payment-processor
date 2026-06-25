@@ -1,0 +1,31 @@
+replicaCount: 1
+
+image:
+  repository: paymentprocessor
+  pullPolicy: IfNotPresent
+  tag: dev
+
+database:
+  existingSecret:
+    name: paymentprocessor-db
+    key: DATABASE_URL
+
+migrations:
+  enabled: true
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi

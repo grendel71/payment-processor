@@ -49,7 +49,7 @@
                 if [ -f "requirements.txt" ]; then
                   pip install -r requirements.txt --quiet
                 else
-                  pip install fastapi "uvicorn[standard]" pydantic --quiet
+                  pip install fastapi "uvicorn[standard]" pydantic sqlalchemy psycopg2-binary alembic --quiet
                 fi
                 touch .venv/.initialized
               else

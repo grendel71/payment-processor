@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "payments-platform.fullname" . }}-test-connection"
+  labels:
+    {{- include "payments-platform.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  automountServiceAccountToken: false
+  containers:
+    - name: wget
+      image: busybox
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 65534
+      command: ['wget']
+      args:
+        - '-qO-'
+        - 'http://{{ include "payments-platform.fullname" . }}:{{ .Values.service.port }}/healthz'
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+  restartPolicy: Never

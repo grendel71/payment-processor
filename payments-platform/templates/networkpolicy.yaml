@@ -1,0 +1,96 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $ingressNamespaceSelector := .Values.networkPolicy.ingress.namespaceSelector }}
+{{- $ingressPodSelector := .Values.networkPolicy.ingress.podSelector }}
+{{- $dnsNamespaceSelector := .Values.networkPolicy.egress.dnsNamespaceSelector }}
+{{- $dnsPodSelector := .Values.networkPolicy.egress.dnsPodSelector }}
+{{- $hasIngressNamespaceSelector := and (kindIs "map" $ingressNamespaceSelector) (gt (len $ingressNamespaceSelector) 0) }}
+{{- $hasIngressPodSelector := and (kindIs "map" $ingressPodSelector) (gt (len $ingressPodSelector) 0) }}
+{{- $hasDnsNamespaceSelector := and (kindIs "map" $dnsNamespaceSelector) (gt (len $dnsNamespaceSelector) 0) }}
+{{- $hasDnsPodSelector := and (kindIs "map" $dnsPodSelector) (gt (len $dnsPodSelector) 0) }}
+{{- if not (and $hasIngressNamespaceSelector $hasIngressPodSelector) }}
+{{- fail "networkPolicy ingress requires namespaceSelector and podSelector" }}
+{{- end }}
+{{- if not $hasDnsNamespaceSelector }}
+{{- fail "networkPolicy DNS egress requires dnsNamespaceSelector" }}
+{{- end }}
+{{- if not $hasDnsPodSelector }}
+{{- fail "networkPolicy DNS egress requires dnsPodSelector" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "payments-platform.fullname" . }}
+  labels:
+    {{- include "payments-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "payments-platform.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingress.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.ingress.podSelector | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.targetPort }}
+  egress:
+    - to:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.egress.dnsNamespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.egress.dnsPodSelector | nindent 12 }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- if .Values.networkPolicy.egress.database.cidr }}
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.egress.database.cidr | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.egress.database.port }}
+    {{- end }}
+{{- if .Values.migrations.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "payments-platform.migrationJobName" . }}
+  labels:
+    {{- include "payments-platform.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "payments-platform.name" . }}-migration
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: migration
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.egress.dnsNamespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.egress.dnsPodSelector | nindent 12 }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- if .Values.networkPolicy.egress.database.cidr }}
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.egress.database.cidr | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.egress.database.port }}
+    {{- end }}
+{{- end }}
+{{- end }}

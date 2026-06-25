@@ -1,0 +1,20 @@
+Payment Processor chart deployed.
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Service: {{ include "payments-platform.fullname" . }}:{{ .Values.service.port }}
+
+Required external Secret:
+  name: {{ include "payments-platform.databaseSecretName" . }}
+  key: {{ .Values.database.existingSecret.key }}
+
+Health endpoints:
+  liveness: /healthz
+  readiness: /readyz
+
+Run Helm tests:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+  If NetworkPolicy is enabled, allow Helm test pods or disable NetworkPolicy for tests.
+
+If migrations are enabled, Helm runs `alembic upgrade head` as a pre-install/pre-upgrade hook.
+Helm rollback does not roll back database schema changes; migrations must be backward-compatible.
