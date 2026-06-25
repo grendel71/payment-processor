@@ -7,4 +7,5 @@ __pycache__/
 *.db
 .pytest_cache/
 .env
-docs/
+docs/*
+!docs/superpowers
