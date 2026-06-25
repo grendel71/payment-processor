@@ -12,8 +12,8 @@ RUN python -m venv /opt/venv \
 FROM python:3.12-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system app \
-    && useradd --system --gid app --home-dir /app app
+    && groupadd --system --gid 1001 app \
+    && useradd --system --uid 1001 --gid app --home-dir /app app
 COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY app ./app

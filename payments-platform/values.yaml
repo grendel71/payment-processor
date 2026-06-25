@@ -30,6 +30,7 @@ securityContext:
       - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
+  runAsUser: 1001
 
 service:
   type: ClusterIP
@@ -84,6 +85,7 @@ migrations:
         - ALL
     readOnlyRootFilesystem: true
     runAsNonRoot: true
+    runAsUser: 1001
   resources:
     limits:
       cpu: 500m
