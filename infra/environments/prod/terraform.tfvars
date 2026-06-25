@@ -13,7 +13,7 @@ ecr_repository_name = "payment-processor"
 public_access_cidrs = ["0.0.0.0/0"]
 
 # Replace with your real AWS account ID
-aws_account_id = "123456789012"
+aws_account_id = "465457334498"
 
 # Replace with the ARN of the IAM user/role used by your CI pipeline
-ci_principal_arn = "arn:aws:iam::123456789012:user/ci-deploy"
+ci_principal_arn = "arn:aws:iam::465457334498:user/blau700"
