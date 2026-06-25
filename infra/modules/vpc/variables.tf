@@ -20,6 +20,12 @@ variable "availability_zones" {
   default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
+variable "nat_gateway_count" {
+  description = "Number of NAT Gateways to create. 1 reduces cost but is a single point of failure for outbound traffic. Use 3 for full HA in production."
+  type        = number
+  default     = 1
+}
+
 variable "public_subnet_cidrs" {
   description = "CIDR blocks for public subnets (one per AZ)"
   type        = list(string)

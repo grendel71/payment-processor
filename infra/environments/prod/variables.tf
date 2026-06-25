@@ -52,6 +52,12 @@ variable "public_access_cidrs" {
   default     = ["0.0.0.0/0"]
 }
 
+variable "nat_gateway_count" {
+  description = "Number of NAT Gateways. 1 reduces cost; 3 provides full AZ HA."
+  type        = number
+  default     = 1
+}
+
 variable "node_instance_type" {
   description = "EC2 instance type for EKS nodes"
   type        = string
