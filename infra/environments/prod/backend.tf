@@ -13,11 +13,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "payments-platform-tf-state"
-    key            = "prod/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "payments-platform-tf-lock"
-    encrypt        = true
+    bucket       = "payments-platform-tf-state"
+    key          = "prod/terraform.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 
