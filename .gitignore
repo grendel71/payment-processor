@@ -8,3 +8,14 @@ __pycache__/
 .pytest_cache/
 .env
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
