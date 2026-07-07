@@ -1,0 +1,7 @@
+keys:
+  - &homelab age1jc2yh5yr5xdmgfu46q42z3pxy0aztn94x5hsarzmjwxzt9f4tq3qtsmrup
+
+creation_rules:
+  - path_regex: k8s/secret.*\.yaml$
+    encrypted_regex: "^(data|stringData)$"
+    age: *homelab
