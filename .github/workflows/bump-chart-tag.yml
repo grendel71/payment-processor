@@ -1,0 +1,63 @@
+name: Bump Chart Tag
+
+on:
+  workflow_run:
+    workflows: ["Build and Push GHCR Image"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-chart-tag
+  cancel-in-progress: false
+
+jobs:
+  bump-tag:
+    name: Bump chart tag to latest SHA
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Extract short SHA from upstream workflow
+        id: sha
+        run: |
+          SHORT_SHA="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Bumping chart tag to sha-$SHORT_SHA"
+
+      - name: Bump tag in k8s/release.yaml
+        run: |
+          sed -i -E 's|tag: "sha-[a-f0-9]+"|tag: "sha-${{ steps.sha.outputs.short_sha }}"|' \
+            k8s/release.yaml
+
+      - name: Bump tag in payments-platform/values-talos.yaml
+        run: |
+          sed -i -E 's|tag: "sha-[a-f0-9]+"|tag: "sha-${{ steps.sha.outputs.short_sha }}"|' \
+            payments-platform/values-talos.yaml
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s/release.yaml payments-platform/values-talos.yaml
+          git commit -m "chore(ci): bump chart tag to sha-${{ steps.sha.outputs.short_sha }}"
+          git push
