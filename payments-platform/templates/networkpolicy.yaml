@@ -32,18 +32,22 @@ spec:
   ingress:
     - from:
         - namespaceSelector:
-            {{- toYaml .Values.networkPolicy.ingress.namespaceSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingress.namespaceSelector | nindent 14 }}
           podSelector:
-            {{- toYaml .Values.networkPolicy.ingress.podSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingress.podSelector | nindent 14 }}
       ports:
         - protocol: TCP
           port: {{ .Values.service.targetPort }}
   egress:
     - to:
         - namespaceSelector:
-            {{- toYaml .Values.networkPolicy.egress.dnsNamespaceSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.egress.dnsNamespaceSelector | nindent 14 }}
           podSelector:
-            {{- toYaml .Values.networkPolicy.egress.dnsPodSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.egress.dnsPodSelector | nindent 14 }}
       ports:
         - protocol: UDP
           port: 53
@@ -62,9 +66,11 @@ spec:
     {{- else if and (kindIs "map" $dbPodSelector) (gt (len $dbPodSelector) 0) }}
     - to:
         - namespaceSelector:
-            {{- toYaml ($dbNsSelector | default dict) | nindent 12 }}
+            matchLabels:
+              {{- toYaml ($dbNsSelector | default dict) | nindent 14 }}
           podSelector:
-            {{- toYaml $dbPodSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml $dbPodSelector | nindent 14 }}
       ports:
         - protocol: TCP
           port: {{ .Values.networkPolicy.egress.database.port }}
@@ -88,9 +94,11 @@ spec:
   egress:
     - to:
         - namespaceSelector:
-            {{- toYaml .Values.networkPolicy.egress.dnsNamespaceSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.egress.dnsNamespaceSelector | nindent 14 }}
           podSelector:
-            {{- toYaml .Values.networkPolicy.egress.dnsPodSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.egress.dnsPodSelector | nindent 14 }}
       ports:
         - protocol: UDP
           port: 53
@@ -109,9 +117,11 @@ spec:
     {{- else if and (kindIs "map" $dbPodSelector) (gt (len $dbPodSelector) 0) }}
     - to:
         - namespaceSelector:
-            {{- toYaml ($dbNsSelector | default dict) | nindent 12 }}
+            matchLabels:
+              {{- toYaml ($dbNsSelector | default dict) | nindent 14 }}
           podSelector:
-            {{- toYaml $dbPodSelector | nindent 12 }}
+            matchLabels:
+              {{- toYaml $dbPodSelector | nindent 14 }}
       ports:
         - protocol: TCP
           port: {{ .Values.networkPolicy.egress.database.port }}
