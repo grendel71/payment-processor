@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.health import router as health_router
 from app.api.payments import router as payments_router
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router)
     app.include_router(payments_router)
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
     @app.exception_handler(PaymentNotFoundError)
     async def _not_found(_: Request, exc: PaymentNotFoundError) -> JSONResponse:

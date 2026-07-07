@@ -8,6 +8,7 @@ except branch.
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
+from prometheus_client import Counter as PromCounter
 
 from app.models.enums import (
     AuditEventType,
@@ -28,6 +29,17 @@ from app.services.exceptions import (
 
 
 _VALID_SETTLE_FROM = {PaymentStatus.PENDING}
+
+payments_created_total = PromCounter(
+    "payments_created_total",
+    "Total payments created",
+    ["status"],
+)
+payments_settled_total = PromCounter(
+    "payments_settled_total",
+    "Total payments settled",
+    ["outcome"],
+)
 
 
 class PaymentService:
@@ -74,6 +86,7 @@ class PaymentService:
                 "requested_amount": amount,
             },
         )
+        payments_created_total.labels(status="pending").inc()
         return payment, True
 
     # ------------------------------------------------------------------
@@ -87,6 +100,7 @@ class PaymentService:
         if payment.status in (PaymentStatus.SETTLED, PaymentStatus.FAILED):
             # Idempotent: already terminal. Return current state untouched.
             if payment.status == PaymentStatus.SETTLED:
+                payments_settled_total.labels(outcome="idempotent_replay").inc()
                 return payment
             raise InvalidStateTransitionError(
                 payment_id, payment.status.value, "settle"
@@ -119,6 +133,7 @@ class PaymentService:
                 "requested_amount": payment.amount,
             },
         )
+        payments_settled_total.labels(outcome="succeeded").inc()
         return payment
 
     # ------------------------------------------------------------------
