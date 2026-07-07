@@ -25,7 +25,7 @@ spec:
     image:
       repository: ghcr.io/grendel71/payment-processor
       pullPolicy: IfNotPresent
-      tag: "sha-20d7a43"
+      tag: "sha-8d0e80e"
 
     database:
       existingSecret:
