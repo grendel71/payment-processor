@@ -5,3 +5,4 @@ alembic
 uvicorn
 pydantic
 prometheus-fastapi-instrumentator
+structlog

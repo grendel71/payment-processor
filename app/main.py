@@ -7,6 +7,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.health import router as health_router
 from app.api.payments import router as payments_router
+from app.logging import configure_logging, RequestIDMiddleware
 from app.services.exceptions import (
     IdempotencyConflictError,
     InvalidStateTransitionError,
@@ -23,11 +24,13 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     app = FastAPI(
         title="Payment Processor",
         version="0.1.0",
         lifespan=lifespan,
     )
+    app.add_middleware(RequestIDMiddleware)
     app.include_router(health_router)
     app.include_router(payments_router)
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
