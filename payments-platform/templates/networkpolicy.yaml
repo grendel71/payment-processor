@@ -40,6 +40,20 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.service.targetPort }}
+    {{- $monNsSelector := .Values.networkPolicy.ingressMonitoring.namespaceSelector }}
+    {{- $monPodSelector := .Values.networkPolicy.ingressMonitoring.podSelector }}
+    {{- if and (kindIs "map" $monNsSelector) (gt (len $monNsSelector) 0) (kindIs "map" $monPodSelector) (gt (len $monPodSelector) 0) }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml $monNsSelector | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $monPodSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.targetPort }}
+    {{- end }}
   egress:
     - to:
         - namespaceSelector:

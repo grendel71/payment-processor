@@ -128,6 +128,9 @@ networkPolicy:
   ingress:
     namespaceSelector: {}
     podSelector: {}
+  ingressMonitoring:
+    namespaceSelector: {}
+    podSelector: {}
   egress:
     dnsNamespaceSelector: {}
     dnsPodSelector: {}
@@ -144,3 +147,11 @@ volumeMounts: []
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  selectorLabels:
+    app.kubernetes.io/name: payments-platform
+  interval: 30s
+  scrapeTimeout: 10s

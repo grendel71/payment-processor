@@ -2,7 +2,7 @@ apiVersion: v2
 name: payments-platform
 description: Production Helm chart for the payment processor FastAPI service
 type: application
-version: 0.2.3
+version: 0.2.4
 appVersion: "0.1.0"
 keywords:
   - payments
