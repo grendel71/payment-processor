@@ -49,10 +49,22 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    {{- if .Values.networkPolicy.egress.database.cidr }}
+    {{- $dbCidr := .Values.networkPolicy.egress.database.cidr }}
+    {{- $dbPodSelector := .Values.networkPolicy.egress.database.podSelector }}
+    {{- $dbNsSelector := .Values.networkPolicy.egress.database.namespaceSelector }}
+    {{- if $dbCidr }}
     - to:
         - ipBlock:
-            cidr: {{ .Values.networkPolicy.egress.database.cidr | quote }}
+            cidr: {{ $dbCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.egress.database.port }}
+    {{- else if and (kindIs "map" $dbPodSelector) (gt (len $dbPodSelector) 0) }}
+    - to:
+        - namespaceSelector:
+            {{- toYaml ($dbNsSelector | default dict) | nindent 12 }}
+          podSelector:
+            {{- toYaml $dbPodSelector | nindent 12 }}
       ports:
         - protocol: TCP
           port: {{ .Values.networkPolicy.egress.database.port }}
@@ -84,10 +96,22 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    {{- if .Values.networkPolicy.egress.database.cidr }}
+    {{- $dbCidr := .Values.networkPolicy.egress.database.cidr }}
+    {{- $dbPodSelector := .Values.networkPolicy.egress.database.podSelector }}
+    {{- $dbNsSelector := .Values.networkPolicy.egress.database.namespaceSelector }}
+    {{- if $dbCidr }}
     - to:
         - ipBlock:
-            cidr: {{ .Values.networkPolicy.egress.database.cidr | quote }}
+            cidr: {{ $dbCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.egress.database.port }}
+    {{- else if and (kindIs "map" $dbPodSelector) (gt (len $dbPodSelector) 0) }}
+    - to:
+        - namespaceSelector:
+            {{- toYaml ($dbNsSelector | default dict) | nindent 12 }}
+          podSelector:
+            {{- toYaml $dbPodSelector | nindent 12 }}
       ports:
         - protocol: TCP
           port: {{ .Values.networkPolicy.egress.database.port }}

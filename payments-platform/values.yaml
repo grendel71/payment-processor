@@ -131,8 +131,12 @@ networkPolicy:
   egress:
     dnsNamespaceSelector: {}
     dnsPodSelector: {}
+    # database egress: set either cidr (external DB) OR podSelector+namespaceSelector (in-cluster DB).
+    # cidr takes priority if both are set. namespaceSelector: {} matches all namespaces.
     database:
       cidr: ""
+      podSelector: {}
+      namespaceSelector: {}
       port: 5432
 
 volumes: []
