@@ -1,0 +1,16 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: payments-db
+  namespace: payments
+spec:
+  instances: 1
+  bootstrap:
+    initdb:
+      database: paymentprocessor
+      owner: paymentprocessor
+      secret:
+        name: payments-db-credentials
+  storage:
+    size: 5Gi
+    storageClass: replicated-x3-block-store
