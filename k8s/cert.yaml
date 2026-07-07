@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: payments-platform-tls
+  namespace: payments
+spec:
+  secretName: payments-platform-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  dnsNames:
+    - payments.envoy.grendel71.net

@@ -1,0 +1,24 @@
+---
+# HTTPRoute for payments-platform - INTERNAL
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: payments-platform-internal
+  namespace: payments
+  annotations:
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  parentRefs:
+    - name: envoy-external
+      namespace: envoy-gateway-system
+      sectionName: https
+  hostnames:
+    - papi.grendel71.net
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: payments-platform
+          port: 8000
